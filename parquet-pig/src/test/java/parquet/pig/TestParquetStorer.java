@@ -23,8 +23,11 @@ import static org.junit.Assert.assertEquals;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 
 import org.apache.pig.ExecType;
 import org.apache.pig.PigServer;
@@ -80,6 +83,40 @@ public class TestParquetStorer {
       assertEquals("a"+i, tuple.get(0));
       ++i;
     }
+  }
+
+  @Test
+  public void testStoreMap() throws ExecException, Exception {
+    String out = "target/out/TestParquetStorer/testStoreMap";
+    Properties props = new Properties();
+    props.setProperty("parquet.compression", "uncompressed");
+    props.setProperty("parquet.page.size", "1000");
+    PigServer pigServer = new PigServer(ExecType.LOCAL, props);
+    Data data = Storage.resetData(pigServer);
+    data.set("in", "foo: chararray, bar: map[chararray]", tuple("foo", new HashMap<String, String>() {{put("a", "a"); put("b", "b"); }}));
+    pigServer.setBatchOn();
+    pigServer.registerQuery("A = LOAD 'in' USING mock.Storage();");
+    pigServer.deleteFile(out);
+    pigServer.registerQuery("Store A into '"+out+"' using "+ParquetStorer.class.getName()+"();");
+    if (pigServer.executeBatch().get(0).getStatus() != JOB_STATUS.COMPLETED) {
+      throw new RuntimeException("Job failed", pigServer.executeBatch().get(0).getException());
+    }
+
+    pigServer.registerQuery("B = LOAD '"+out+"' USING "+ParquetLoader.class.getName()+"();");
+    pigServer.registerQuery("Store B into 'out' using mock.Storage();");
+    if (pigServer.executeBatch().get(0).getStatus() != JOB_STATUS.COMPLETED) {
+      throw new RuntimeException("Job failed", pigServer.executeBatch().get(0).getException());
+    }
+
+    List<Tuple> result = data.get("out");
+
+    assertEquals(1, result.size());
+    final Tuple tuple = result.get(0);
+    assertEquals("foo", tuple.get(0));
+    final Map<String, String> map = (Map<String, String>)tuple.get(1);
+    assertEquals(2, map.size());
+    assertEquals("a", map.get("a"));
+    assertEquals("b", map.get("b"));
   }
 
   @Test
