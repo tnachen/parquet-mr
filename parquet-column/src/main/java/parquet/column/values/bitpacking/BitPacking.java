@@ -21,6 +21,7 @@ import java.io.OutputStream;
 
 import parquet.column.values.bitpacking.BitPacking.BitPackingReader;
 import parquet.column.values.bitpacking.BitPacking.BitPackingWriter;
+import parquet.io.ParquetDecodingException;
 
 // TODO: rework the whole thing. It does not need to use streams at all
 /**
@@ -30,7 +31,7 @@ import parquet.column.values.bitpacking.BitPacking.BitPackingWriter;
  *
  */
 public class BitPacking {
-
+  public static boolean FULL = false;
   /**
    * to writes ints to a stream packed to only the needed bits.
    * there is no guarantee of corecteness if ints larger than the max size are written
@@ -113,7 +114,9 @@ public class BitPacking {
     case 0:
       return new ZeroBitPackingReader();
     case 1:
-      return new OneBitPackingReader(in);
+      return FULL ?
+          new FullDecodingOneBitPackingReader(in, valueCount) :
+            new OneBitPackingReader(in);
     case 2:
       return new TwoBitPackingReader(in);
     case 3:
@@ -215,6 +218,50 @@ class OneBitPackingWriter extends BitPackingWriter {
   }
 
 }
+
+class FullDecodingOneBitPackingReader extends BitPackingReader {
+
+  private final InputStream in;
+  private final long valueCount;
+  private final byte[] decoded;
+  private int index;
+
+  public FullDecodingOneBitPackingReader(InputStream in, long valueCount) {
+    try {
+      this.in = in;
+      this.valueCount = valueCount;
+      this.decoded = new byte[(int)valueCount];
+      int bytesCount = (int)valueCount/8;
+      for (int i = 0, j = 0; i < bytesCount; i++, j += 8) {
+        int b = in.read();
+        decoded[j + 0] = (byte)((b >> 7) & 1);
+        decoded[j + 1] = (byte)((b >> 6) & 1);
+        decoded[j + 2] = (byte)((b >> 5) & 1);
+        decoded[j + 3] = (byte)((b >> 4) & 1);
+        decoded[j + 4] = (byte)((b >> 3) & 1);
+        decoded[j + 5] = (byte)((b >> 2) & 1);
+        decoded[j + 6] = (byte)((b >> 1) & 1);
+        decoded[j + 7] = (byte)((b >> 0) & 1);
+      }
+      int rest = (int)valueCount % 8;
+      if (rest > 0) {
+        int b = in.read();
+        for (int i = 0, j = (int)valueCount - rest; j < valueCount; i++, j++) {
+          decoded[j] = (byte)((b >> 7 - i) & 1);
+        }
+      }
+    } catch (IOException e) {
+      throw new ParquetDecodingException(e);
+    }
+  }
+
+  @Override
+  public int read() throws IOException {
+    return decoded[index++];
+  }
+
+}
+
 class OneBitPackingReader extends BitPackingReader {
 
   private final InputStream in;
