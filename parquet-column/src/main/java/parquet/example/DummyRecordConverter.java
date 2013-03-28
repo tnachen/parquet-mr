@@ -44,6 +44,7 @@ public final class DummyRecordConverter extends RecordMaterializer<Object> {
       @Override
       public Converter convertPrimitiveType(List<GroupType> path, PrimitiveType primitiveType) {
         return new PrimitiveConverter() {
+
           @Override
           public void addBinary(Binary value) {
             a = value;
