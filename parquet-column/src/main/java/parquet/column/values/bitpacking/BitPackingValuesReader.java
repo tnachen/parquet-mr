@@ -18,7 +18,6 @@ package parquet.column.values.bitpacking;
 import static parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static parquet.column.values.bitpacking.BitPacking.createBitPackingReader;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 import parquet.Log;
@@ -35,7 +34,6 @@ import parquet.io.ParquetDecodingException;
 public class BitPackingValuesReader extends ValuesReader {
   private static final Log LOG = Log.getLog(BitPackingValuesReader.class);
 
-  private ByteArrayInputStream in;
   private BitPackingReader bitPackingReader;
   private final int bitsPerValue;
 
@@ -73,8 +71,7 @@ public class BitPackingValuesReader extends ValuesReader {
     // TODO: maybe ((effectiveBitLength - 1) / 8 + 1) here? has fewer conditionals and divides
     int length = effectiveBitLength / 8 + (effectiveBitLength % 8 == 0 ? 0 : 1); // ceil
     if (Log.DEBUG) LOG.debug("reading " + length + " bytes for " + valueCount + " values of size " + bitsPerValue + " bits." );
-    this.in = new ByteArrayInputStream(in, offset, length);
-    this.bitPackingReader = createBitPackingReader(bitsPerValue, this.in, valueCount);
+    this.bitPackingReader = createBitPackingReader(bitsPerValue, in, offset, length, valueCount);
     return offset + length;
   }
 

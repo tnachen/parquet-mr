@@ -26,13 +26,13 @@ public class BitPackingPerfTest {
     byte[] bytes = baos.toByteArray();
     int[] result = new int[COUNT];
     for (int l = 0; l < 5; l++) {
-//    long s = slow(COUNT, bytes, result);
-    long b = block(COUNT, bytes, result);
-//    System.out.println((float)b/s);
-//    long f = full(COUNT, bytes, result);
-//    System.out.println((float)f/s);
-//    long f32 = full32(COUNT, bytes, result);
-//    System.out.println((float)f32/s);
+      long s = slow(COUNT, bytes, result);
+      long b = block(COUNT, bytes, result);
+      System.out.println((float)b/s);
+      //    long f = full(COUNT, bytes, result);
+      //    System.out.println((float)f/s);
+      //    long f32 = full32(COUNT, bytes, result);
+      //    System.out.println((float)f32/s);
     }
   }
 
@@ -56,36 +56,37 @@ public class BitPackingPerfTest {
     System.out.println();
     System.out.println(alg);
     long t = 0;
-    for (int l = 0; l < 1; l++) {
-      System.gc();
-      System.out.print("no gc <");
-      long t2 = System.currentTimeMillis();
-      for (int k = 0; k < 1000; k++) {
-        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-        BitPackingReader r;
-        switch (alg) {
-          case STREAM:
-            r = BitPacking.createBitPackingReader(1, bais, count);
-            break;
-          case BLOCK:
-            r = new BlockDecodingOneBitPackingReader(bais, count);
-            break;
-          case FULL_8:
-            r = new FullDecodingOneBitPackingReader(bais, result);
-            break;
-          case FULL_32:
-            r = new Full32DecodingOneBitPackingReader(bais, result);
-            break;
-            default: throw new RuntimeException(alg + " unknown");
-        }
-        for (int i = 0; i < result.length; i++) {
-          result[i] = r.read();
-        }
+    int N = 10;
+    ByteArrayInputStream bais;
+    System.gc();
+    System.out.print("no gc <");
+    for (int k = 0; k < N; k++) {
+      BitPackingReader r;
+      long t2 = System.nanoTime();
+      switch (alg) {
+      case STREAM:
+        r = BitPacking.createBitPackingReader(1, bytes, 0, bytes.length, count);
+        break;
+      case BLOCK:
+        r = new BlockDecodingOneBitPackingReader(bytes, 0, count);
+        break;
+      case FULL_8:
+        bais = new ByteArrayInputStream(bytes);
+        r = new FullDecodingOneBitPackingReader(bais, result);
+        break;
+      case FULL_32:
+        bais = new ByteArrayInputStream(bytes);
+        r = new Full32DecodingOneBitPackingReader(bais, result);
+        break;
+      default: throw new RuntimeException(alg + " unknown");
       }
-      long t3 = System.currentTimeMillis();
-      t = t3 - t2;
-      System.out.println("> read in " + t + "ms");
+      for (int i = 0; i < result.length; i++) {
+        result[i] = r.read();
+      }
+      long t3 = System.nanoTime();
+      t += t3 - t2;
     }
+    System.out.println("> read in " + t/1000 + "µs " + (N * result.length / (t / 1000)) + " values per µs");
     return t;
   }
 

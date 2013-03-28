@@ -75,6 +75,20 @@ public class TestBitPacking {
   }
 
   @Test
+  public void testOne_MoreThanBlockSize() throws IOException {
+    int[] vals = new int[19 * 1024 + 3];
+    for (int i = 0; i < vals.length; i++) {
+      vals[i] = i % 2;
+    }
+    StringBuilder expected = new StringBuilder("01010101");
+    for (int i = 0; i < vals.length / 8 - 1; i++) {
+      expected.append(" 01010101");
+    }
+    expected.append(" 01000000");
+    validateEncodeDecode(1, vals, expected.toString());
+  }
+
+  @Test
   public void testOne_9_0s() throws IOException {
     int[] vals = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     String expected = "00000000 00000000";
@@ -169,8 +183,7 @@ public class TestBitPacking {
     System.out.println("vals ("+bitLength+"): " + toString(vals));
     System.out.println("bytes: " + toString(bytes));
     Assert.assertEquals(expected, toString(bytes));
-    ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-    BitPackingReader r = BitPacking.createBitPackingReader(bitLength, bais, vals.length);
+    BitPackingReader r = BitPacking.createBitPackingReader(bitLength, bytes, 0, bytes.length, vals.length);
     int[] result = new int[vals.length];
     for (int i = 0; i < result.length; i++) {
       result[i] = r.read();

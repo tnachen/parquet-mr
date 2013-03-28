@@ -125,7 +125,7 @@ public class TestParquetStorer {
     String out = "target/out";
     PigServer pigServer = new PigServer(ExecType.LOCAL);
     Data data = Storage.resetData(pigServer);
-    Collection<Tuple> list = new ArrayList<Tuple>();
+    List<Tuple> list = new ArrayList<Tuple>();
     for (int i = 0; i < 1000; i++) {
       list.add(tuple("a"+i, bag(tuple("o", "b"))));
     }
@@ -156,7 +156,11 @@ public class TestParquetStorer {
       }
 
       List<Tuple> result = data.get("out");
-      assertEquals(list, result);
+      assertEquals("result: " + result, list.size(), result.size());
+      for (int i = 0; i < list.size(); i++) {
+        Tuple expected = list.get(i);
+        assertEquals("at index " + i, expected, result.get(i));
+      }
       final Schema schema = data.getSchema("out");
       assertEquals("{a:chararray, b:{t:(c:chararray, d:chararray)}}".replaceAll(" ", ""), schema.toString().replaceAll(" ", ""));
     }

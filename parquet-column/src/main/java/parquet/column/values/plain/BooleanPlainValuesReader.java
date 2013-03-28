@@ -18,7 +18,6 @@ package parquet.column.values.plain;
 import static parquet.Log.DEBUG;
 import static parquet.column.values.bitpacking.BitPacking.createBitPackingReader;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 import parquet.Log;
@@ -59,7 +58,7 @@ public class BooleanPlainValuesReader extends ValuesReader {
   @Override
   public int initFromPage(long valueCount, byte[] in, int offset) throws IOException {
     if (DEBUG) LOG.debug("init from page at offset "+ offset + " for length " + (in.length - offset));
-    this.in = createBitPackingReader(1, new ByteArrayInputStream(in, offset, in.length - offset), valueCount);
+    this.in = createBitPackingReader(1, in, offset, in.length - offset, valueCount);
     return in.length;
   }
 

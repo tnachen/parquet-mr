@@ -15,6 +15,7 @@
  */
 package parquet.column.values.bitpacking;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -107,26 +108,27 @@ public class BitPacking {
    * @param inthe stream to read the bytes from
    * @return the correct implementation for the width
    */
-  public static BitPackingReader createBitPackingReader(int bitLength, InputStream in, long valueCount) {
+  public static BitPackingReader createBitPackingReader(int bitLength, byte[] in, int offset, int length, long valueCount) {
     switch (bitLength) {
     case 0:
       return new ZeroBitPackingReader();
     case 1:
-      return new OneBitPackingReader(in);
+//      return new OneBitPackingReader(new ByteArrayInputStream(in, offset, length));
+      return new BlockDecodingOneBitPackingReader(in, offset, valueCount);
     case 2:
-      return new TwoBitPackingReader(in);
+      return new TwoBitPackingReader(new ByteArrayInputStream(in, offset, length));
     case 3:
-      return new ThreeBitPackingReader(in, valueCount);
+      return new ThreeBitPackingReader(new ByteArrayInputStream(in, offset, length), valueCount);
     case 4:
-      return new FourBitPackingReader(in);
+      return new FourBitPackingReader(new ByteArrayInputStream(in, offset, length));
     case 5:
-      return new FiveBitPackingReader(in, valueCount);
+      return new FiveBitPackingReader(new ByteArrayInputStream(in, offset, length), valueCount);
     case 6:
-      return new SixBitPackingReader(in, valueCount);
+      return new SixBitPackingReader(new ByteArrayInputStream(in, offset, length), valueCount);
     case 7:
-      return new SevenBitPackingReader(in, valueCount);
+      return new SevenBitPackingReader(new ByteArrayInputStream(in, offset, length), valueCount);
     case 8:
-      return new EightBitPackingReader(in);
+      return new EightBitPackingReader(new ByteArrayInputStream(in, offset, length));
     default:
       throw new UnsupportedOperationException("only support up to 8 for now");
     }
