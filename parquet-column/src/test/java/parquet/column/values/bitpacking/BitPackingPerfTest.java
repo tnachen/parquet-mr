@@ -9,7 +9,7 @@ import parquet.column.values.bitpacking.BitPacking.BitPackingWriter;
 
 public class BitPackingPerfTest {
 
-  public enum ALG { STREAM, FULL_8, FULL_32 }
+  public enum ALG { STREAM, BLOCK, FULL_8, FULL_32 }
 
   public static void main(String[] args) throws IOException {
     int COUNT = 800000;
@@ -26,39 +26,49 @@ public class BitPackingPerfTest {
     byte[] bytes = baos.toByteArray();
     int[] result = new int[COUNT];
     for (int l = 0; l < 5; l++) {
-    long s = slow(COUNT, bytes, result);
-    long f = full(COUNT, bytes, result);
-    System.out.println((float)f/s);
-    long f32 = full32(COUNT, bytes, result);
-    System.out.println((float)f32/s);
+//    long s = slow(COUNT, bytes, result);
+    long b = block(COUNT, bytes, result);
+//    System.out.println((float)b/s);
+//    long f = full(COUNT, bytes, result);
+//    System.out.println((float)f/s);
+//    long f32 = full32(COUNT, bytes, result);
+//    System.out.println((float)f32/s);
     }
   }
 
-  private static long full(int COUNT, byte[] bytes, int[] result)
+  private static long full(int count, byte[] bytes, int[] result)
       throws IOException {
-    return readNTimes(COUNT, bytes, result, ALG.FULL_8);
+    return readNTimes(count, bytes, result, ALG.FULL_8);
   }
 
-  private static long full32(int COUNT, byte[] bytes, int[] result)
+  private static long block(int count, byte[] bytes, int[] result)
       throws IOException {
-    return readNTimes(COUNT, bytes, result, ALG.FULL_32);
+    return readNTimes(count, bytes, result, ALG.BLOCK);
   }
 
-  private static long readNTimes(int COUNT, byte[] bytes, int[] result, ALG alg)
+  private static long full32(int count, byte[] bytes, int[] result)
+      throws IOException {
+    return readNTimes(count, bytes, result, ALG.FULL_32);
+  }
+
+  private static long readNTimes(int count, byte[] bytes, int[] result, ALG alg)
       throws IOException {
     System.out.println();
     System.out.println(alg);
     long t = 0;
     for (int l = 0; l < 1; l++) {
       System.gc();
-      System.out.print("<");
+      System.out.print("no gc <");
       long t2 = System.currentTimeMillis();
       for (int k = 0; k < 1000; k++) {
         ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
         BitPackingReader r;
         switch (alg) {
           case STREAM:
-            r = BitPacking.createBitPackingReader(1, bais, COUNT);
+            r = BitPacking.createBitPackingReader(1, bais, count);
+            break;
+          case BLOCK:
+            r = new BlockDecodingOneBitPackingReader(bais, count);
             break;
           case FULL_8:
             r = new FullDecodingOneBitPackingReader(bais, result);
@@ -79,8 +89,8 @@ public class BitPackingPerfTest {
     return t;
   }
 
-  private static long slow(int COUNT, byte[] bytes, int[] result)
+  private static long slow(int count, byte[] bytes, int[] result)
       throws IOException {
-    return readNTimes(COUNT, bytes, result, ALG.STREAM);
+    return readNTimes(count, bytes, result, ALG.STREAM);
   }
 }
