@@ -22,6 +22,8 @@ import static parquet.hadoop.ParquetFileWriter.MAGIC;
 import static parquet.hadoop.ParquetFileWriter.PARQUET_METADATA_FILE;
 
 import java.io.Closeable;
+import java.io.DataInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -243,31 +245,60 @@ public class ParquetFileReader implements Closeable {
   public static final ParquetMetadata readFooter(Configuration configuration, FileStatus file) throws IOException {
     FileSystem fileSystem = file.getPath().getFileSystem(configuration);
     FSDataInputStream f = fileSystem.open(file.getPath());
-    long l = file.getLen();
-    if (Log.DEBUG) LOG.debug("File length " + l);
-    int FOOTER_LENGTH_SIZE = 4;
-    if (l < MAGIC.length + FOOTER_LENGTH_SIZE + MAGIC.length) { // MAGIC + data + footer + footerIndex + MAGIC
-      throw new RuntimeException(file.getPath() + " is not a Parquet file (too small)");
-    }
-    long footerLengthIndex = l - FOOTER_LENGTH_SIZE - MAGIC.length;
-    if (Log.DEBUG) LOG.debug("reading footer index at " + footerLengthIndex);
 
-    f.seek(footerLengthIndex);
-    int footerLength = readIntLittleEndian(f);
-    byte[] magic = new byte[MAGIC.length];
-    f.readFully(magic);
-    if (!Arrays.equals(MAGIC, magic)) {
-      throw new RuntimeException(file.getPath() + " is not a Parquet file. expected magic number at tail " + Arrays.toString(MAGIC) + " but found " + Arrays.toString(magic));
-    }
-    long footerIndex = footerLengthIndex - footerLength;
-    if (Log.DEBUG) LOG.debug("read footer length: " + footerLength + ", footer index: " + footerIndex);
-    if (footerIndex < MAGIC.length || footerIndex >= footerLengthIndex) {
-      throw new RuntimeException("corrupted file: the footer index is not within the file");
-    }
-    f.seek(footerIndex);
-    return parquetMetadataConverter.readParquetMetadata(f);
+      long l = file.getLen();
+      if (Log.DEBUG) LOG.debug("File length " + l);
+      int FOOTER_LENGTH_SIZE = 4;
+      if (l < MAGIC.length + FOOTER_LENGTH_SIZE + MAGIC.length) { // MAGIC + data + footer + footerIndex + MAGIC
+          throw new RuntimeException(file.getPath() + " is not a Parquet file (too small)");
+      }
+      long footerLengthIndex = l - FOOTER_LENGTH_SIZE - MAGIC.length;
+      if (Log.DEBUG) LOG.debug("reading footer index at " + footerLengthIndex);
 
+      f.seek(footerLengthIndex);
+      int footerLength = readIntLittleEndian(f);
+      byte[] magic = new byte[MAGIC.length];
+      f.readFully(magic);
+      if (!Arrays.equals(MAGIC, magic)) {
+          throw new RuntimeException(file.getPath() + " is not a Parquet file. expected magic number at tail " + Arrays.toString(MAGIC) + " but found " + Arrays.toString(magic));
+      }
+      long footerIndex = footerLengthIndex - footerLength;
+      if (Log.DEBUG) LOG.debug("read footer length: " + footerLength + ", footer index: " + footerIndex);
+      if (footerIndex < MAGIC.length || footerIndex >= footerLengthIndex) {
+          throw new RuntimeException("corrupted file: the footer index is not within the file");
+      }
+      f.seek(footerIndex);
+      return parquetMetadataConverter.readParquetMetadata(f);
   }
+
+  public static final ParquetMetadata readFooter(DataInputStream f, File file) throws IOException {
+      long l = file.length();
+      if (Log.DEBUG) LOG.debug("File length " + l);
+      int FOOTER_LENGTH_SIZE = 4;
+      if (l < MAGIC.length + FOOTER_LENGTH_SIZE + MAGIC.length) { // MAGIC + data + footer + footerIndex + MAGIC
+          throw new RuntimeException(file.getPath() + " is not a Parquet file (too small)");
+      }
+      long footerLengthIndex = l - FOOTER_LENGTH_SIZE - MAGIC.length;
+      if (Log.DEBUG) LOG.debug("reading footer index at " + footerLengthIndex);
+
+      f.skip(footerLengthIndex);
+      int footerLength = readIntLittleEndian(f);
+      byte[] magic = new byte[MAGIC.length];
+      f.readFully(magic);
+      if (!Arrays.equals(MAGIC, magic)) {
+          throw new RuntimeException(file.getPath() + " is not a Parquet file. expected magic number at tail " + Arrays.toString(MAGIC) + " but found " + Arrays.toString(magic));
+      }
+      long footerIndex = footerLengthIndex - footerLength;
+      if (Log.DEBUG) LOG.debug("read footer length: " + footerLength + ", footer index: " + footerIndex);
+      if (footerIndex < MAGIC.length || footerIndex >= footerLengthIndex) {
+          throw new RuntimeException("corrupted file: the footer index is not within the file");
+      }
+
+      f.reset();
+      f.skip(footerIndex);
+      return parquetMetadataConverter.readParquetMetadata(f);
+  }
+
   private CodecFactory codecFactory;
 
   private final List<BlockMetaData> blocks;
